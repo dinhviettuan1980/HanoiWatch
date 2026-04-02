@@ -1,0 +1,20 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build",
+            "type": "shell",
+            "command": "java -Xms1g -Dfile.encoding=UTF-8 -Dapple.awt.UIElement=true -jar \"/Users/tuandv/Library/Application Support/Garmin/ConnectIQ/Sdks/connectiq-sdk-mac-9.1.0-2026-03-09-6a872a80b/bin/monkeybrains.jar\" -o \"${workspaceFolder}/bin/HanoiWatchFace2.prg\" -f \"${workspaceFolder}/monkey.jungle\" -y \"${workspaceFolder}/developer_key\" -d fr955_sim -w",
+            "group": "build",
+            "presentation": { "reveal": "always" }
+        },
+        {
+            "label": "Run in Simulator",
+            "type": "shell",
+            "command": "open \"/Users/tuandv/Library/Application Support/Garmin/ConnectIQ/Sdks/connectiq-sdk-mac-9.1.0-2026-03-09-6a872a80b/bin/ConnectIQ.app\" && sleep 2 && \"/Users/tuandv/Library/Application Support/Garmin/ConnectIQ/Sdks/connectiq-sdk-mac-9.1.0-2026-03-09-6a872a80b/bin/monkeydo\" \"${workspaceFolder}/bin/HanoiWatchFace2.prg\" fr955",
+            "dependsOn": "Build",
+            "group": "build",
+            "presentation": { "reveal": "always" }
+        }
+    ]
+}

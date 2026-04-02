@@ -1,0 +1,9 @@
+# monkey.jungle - Garmin Connect IQ build config
+project.manifest = manifest.xml
+
+# Source files
+base.sourcePath = source
+base.resourcePath = resources
+
+# Forerunner 955 - target device
+fr955.resourcePath = resources
