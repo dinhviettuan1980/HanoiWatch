@@ -1,6 +1,7 @@
 bin/
 source/gen/
 source/internal-mir/
+source/mir/
 source/*.prg
 source/*.prg.debug.xml
 developer_key
