@@ -42,7 +42,7 @@ class HanoiWatchFaceView extends WatchUi.WatchFace {
         var info      = Gregorian.info(now, Time.FORMAT_SHORT);
 
         var sysStats = System.getSystemStats();
-        var battery  = sysStats.battery.toNumber();
+        var battery  = (sysStats != null && sysStats.battery != null) ? sysStats.battery.toNumber() : -1;
 
         var actInfo  = ActivityMonitor.getInfo();
         var steps    = actInfo.steps;
@@ -74,17 +74,19 @@ class HanoiWatchFaceView extends WatchUi.WatchFace {
             hrHistoryIndex++;
         }
 
-        var tempC      = 0;
+        var tempC      = null;
         var conditions = null;
         if (Weather has :getCurrentConditions) {
             conditions = Weather.getCurrentConditions();
         }
-        if (conditions != null) {
-            tempC = conditions.temperature != null ? conditions.temperature.toNumber() : 0;
+        if (conditions != null && conditions.temperature != null) {
+            tempC = conditions.temperature.toNumber();
         }
 
-        var sunriseStr = "5:49a";
-        var sunsetStr  = "6:11p";
+        var sunTimes   = calcSunriseSunset(info.day, info.month, info.year);
+        var is24h      = System.getDeviceSettings().is24Hour;
+        var sunriseStr = formatSunTime(sunTimes[0], is24h);
+        var sunsetStr  = formatSunTime(sunTimes[1], is24h);
 
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
@@ -143,17 +145,13 @@ class HanoiWatchFaceView extends WatchUi.WatchFace {
 
     // ---- Sunrise / Sunset ----
     function drawSunriseSunset(dc as Dc, sunrise as String, sunset as String) as Void {
-        var y = cy - 100;
-        dc.setColor(0xFFAA00, Graphics.COLOR_TRANSPARENT);
-        dc.fillCircle(cx - 62, y + 4, 4);
+        var y = cy - 110;
         dc.setColor(0xCCCCCC, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx - 40, y, Graphics.FONT_XTINY, sunrise, Graphics.TEXT_JUSTIFY_CENTER);
         dc.setColor(0xFFFFFF, Graphics.COLOR_TRANSPARENT);
         dc.fillCircle(cx, y + 4, 2);
         dc.setColor(0xCCCCCC, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx + 40, y, Graphics.FONT_XTINY, sunset, Graphics.TEXT_JUSTIFY_CENTER);
-        dc.setColor(0xFFAA00, Graphics.COLOR_TRANSPARENT);
-        dc.fillCircle(cx + 62, y + 4, 4);
     }
 
     // ---- Lunar calendar (fixed algorithm) ----
@@ -239,13 +237,13 @@ class HanoiWatchFaceView extends WatchUi.WatchFace {
         var dateStr  = dayStr + " " + info.day.toString() + "/" + info.month.toString();
 
         var lunar    = solarToLunar(info.day, info.month, info.year);
-        var lunarStr = lunar[0].toString() + "/" + lunar[1].toString() + " \u2609";
+        var lunarStr = lunar[0].toString() + "/" + lunar[1].toString() + " AL";
 
         var y = cy - 85;
         dc.setColor(0xCCCCCC, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(25, y, Graphics.FONT_XTINY, dateStr, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(35, y, Graphics.FONT_XTINY, dateStr, Graphics.TEXT_JUSTIFY_LEFT);
         dc.setColor(0xAAAAFF, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(screenW - 25, y, Graphics.FONT_XTINY, lunarStr, Graphics.TEXT_JUSTIFY_RIGHT);
+        dc.drawText(screenW - 35, y, Graphics.FONT_XTINY, lunarStr, Graphics.TEXT_JUSTIFY_RIGHT);
     }
 
     // ---- Large time ----
@@ -263,9 +261,10 @@ class HanoiWatchFaceView extends WatchUi.WatchFace {
     }
 
     // ---- Temperature ----
-    function drawWeatherTemp(dc as Dc, temp as Number) as Void {
+    function drawWeatherTemp(dc as Dc, temp) as Void {
+        var tempStr = (temp != null) ? temp.toString() + "\u00B0" : "---";
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(screenW - 15, cy - 38, Graphics.FONT_SMALL, temp.toString() + "\u00B0C", Graphics.TEXT_JUSTIFY_RIGHT);
+        dc.drawText(screenW - 15, cy - 38, Graphics.FONT_SMALL, tempStr, Graphics.TEXT_JUSTIFY_RIGHT);
     }
 
     // ---- Hanoi ----
@@ -287,7 +286,7 @@ class HanoiWatchFaceView extends WatchUi.WatchFace {
 
         // Calories flush left
         dc.setColor(0xFF8800, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(15, y, Graphics.FONT_XTINY, "\u26A1" + calories.toString() + "cal", Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(15, y, Graphics.FONT_XTINY, calories.toString() + "cal", Graphics.TEXT_JUSTIFY_LEFT);
 
         // Body Battery flush right
         var bbStr   = bodyBattery >= 0 ? "BB:" + bodyBattery.toString() : "BB:--";
@@ -334,17 +333,20 @@ class HanoiWatchFaceView extends WatchUi.WatchFace {
         dc.setPenWidth(1);
         dc.drawRectangle(bx, by - bh/2, bw, bh);
         dc.fillRectangle(bx + bw, by - 2, 2, 4);
-        var fillW     = ((battery.toFloat() / 100.0) * (bw - 2)).toNumber();
-        var fillColor = battery > 30 ? 0x00CC44 : (battery > 15 ? 0xFFAA00 : 0xCC0000);
-        dc.setColor(fillColor, Graphics.COLOR_TRANSPARENT);
-        dc.fillRectangle(bx + 1, by - bh/2 + 1, fillW, bh - 2);
+        if (battery >= 0) {
+            var fillW     = ((battery.toFloat() / 100.0) * (bw - 2)).toNumber();
+            var fillColor = battery > 30 ? 0x00CC44 : (battery > 15 ? 0xFFAA00 : 0xCC0000);
+            dc.setColor(fillColor, Graphics.COLOR_TRANSPARENT);
+            dc.fillRectangle(bx + 1, by - bh/2 + 1, fillW, bh - 2);
+        }
+        var batStr = battery >= 0 ? battery.toString() + "%" : "--%";
         dc.setColor(0xCCCCCC, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(bx - 3, y + 1, Graphics.FONT_XTINY, battery.toString() + "%", Graphics.TEXT_JUSTIFY_RIGHT);
+        dc.drawText(bx - 3, y + 1, Graphics.FONT_XTINY, batStr, Graphics.TEXT_JUSTIFY_RIGHT);
     }
 
     // ---- Steps row ----
     function drawSteps(dc as Dc, steps as Number, stepGoal as Number) as Void {
-        var y = cy + 58;
+        var y = cy + 62;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(32, y, Graphics.FONT_XTINY, steps.toString(), Graphics.TEXT_JUSTIFY_LEFT);
         dc.setColor(0xAAAAAA, Graphics.COLOR_TRANSPARENT);
@@ -363,14 +365,15 @@ class HanoiWatchFaceView extends WatchUi.WatchFace {
         dc.fillRectangle(chartX, chartY, chartW, chartH);
 
         var barW  = chartW / 12;
-        var minHR = 50;
-        var maxHR = 120;
+        var minHR = -1;
+        var maxHR = -1;
         for (var i = 0; i < 12; i++) {
             if (hrHistory[i] > 0) {
-                if (hrHistory[i] < minHR) { minHR = hrHistory[i]; }
-                if (hrHistory[i] > maxHR) { maxHR = hrHistory[i]; }
+                if (minHR < 0 || hrHistory[i] < minHR) { minHR = hrHistory[i]; }
+                if (maxHR < 0 || hrHistory[i] > maxHR) { maxHR = hrHistory[i]; }
             }
         }
+        if (minHR < 0) { minHR = 60; maxHR = 100; } // fallback khi chưa có data
         var hrRange = maxHR - minHR;
         if (hrRange < 10) { hrRange = 10; }
 
@@ -390,6 +393,49 @@ class HanoiWatchFaceView extends WatchUi.WatchFace {
         dc.setColor(0xAAAAAA, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, chartY + chartH + 2, Graphics.FONT_XTINY,
             minHR.toString() + "-" + maxHR.toString(), Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // ---- Sunrise / Sunset calculation (Hanoi fixed coords, no GPS needed) ----
+    // Hanoi: lat=21.0285°N, lng=105.8542°E, UTC+7
+    function calcSunriseSunset(d as Number, m as Number, y as Number) as Array {
+        var dr = Math.PI / 180.0f;
+
+        // Day of year
+        var doy = jdFromDate(d, m, y) - jdFromDate(1, 1, y) + 1;
+
+        var lat = 21.0285f * dr;
+        var B   = (360.0f / 365.0f * (doy - 81)) * dr;
+
+        // Equation of time (minutes)
+        var eot = 9.87f * Math.sin(2.0f * B) - 7.53f * Math.cos(B) - 1.5f * Math.sin(B);
+
+        // Solar declination (radians)
+        var decl = 23.45f * Math.sin(B) * dr;
+
+        // Hour angle at sunrise/sunset (0.833° accounts for refraction + sun radius)
+        var cosHA = (Math.cos(90.833f * dr) - Math.sin(lat) * Math.sin(decl))
+                    / (Math.cos(lat) * Math.cos(decl));
+        cosHA = cosHA < -1.0f ? -1.0f : (cosHA > 1.0f ? 1.0f : cosHA);
+        var ha = Math.acos(cosHA) / dr; // degrees
+
+        // Solar noon in local clock time (UTC+7, std meridian=105°, Hanoi lng=105.8542°)
+        var solarNoon = 12.0f - eot / 60.0f + (105.0f - 105.8542f) * 4.0f / 60.0f;
+
+        return [solarNoon - ha / 15.0f, solarNoon + ha / 15.0f];
+    }
+
+    function formatSunTime(h as Float, is24h as Boolean) as String {
+        var hInt = h.toNumber();
+        var mInt = ((h - hInt.toFloat()) * 60.0f).toNumber();
+        if (mInt < 0)  { mInt = 0; }
+        if (mInt > 59) { mInt = 59; }
+        var suffix = "";
+        if (!is24h) {
+            suffix = hInt < 12 ? "a" : "p";
+            if (hInt > 12) { hInt -= 12; }
+            if (hInt == 0) { hInt = 12; }
+        }
+        return hInt.toString() + ":" + (mInt < 10 ? "0" : "") + mInt.toString() + suffix;
     }
 
     function onHide() as Void {}
